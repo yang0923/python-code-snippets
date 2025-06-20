@@ -5,12 +5,14 @@
 # @Author : yy
 # @Des    : 多功能日志系统：支持彩色、多进程轮转、异常装饰器、标准 logging.config.dictConfig 兼容
 
+import functools
 import logging
 import logging.config
 import os
-import functools
 from typing import Union
+
 from concurrent_log_handler import ConcurrentRotatingFileHandler
+
 
 # =========================
 # 彩色控制台处理器
@@ -47,6 +49,7 @@ class ColoredConsoleHandler(logging.StreamHandler):
         except Exception:
             self.handleError(record)
 
+
 class LoggerExtension:
     @staticmethod
     def catch(logger, level=logging.ERROR, reraise=True, on_error=None):
@@ -58,6 +61,7 @@ class LoggerExtension:
         :param on_error: 异常处理函数
         :return: 装饰器
         """
+
         def decorator(func):
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
@@ -68,13 +72,15 @@ class LoggerExtension:
                         level,
                         f"函数 `{func.__name__}` 执行异常: {e}",
                         exc_info=True,
-                        stacklevel=2
+                        stacklevel=2,
                     )
                     if on_error:
                         on_error(e)
                     if reraise:
                         raise
+
             return wrapper
+
         return decorator
 
     @classmethod
@@ -83,9 +89,12 @@ class LoggerExtension:
         将 catch 注入到 logging.Logger
         """
         if not hasattr(logging.Logger, "catch"):
+
             def _catch(self, level=logging.ERROR, reraise=True, on_error=None):
                 return cls.catch(self, level, reraise, on_error)
+
             logging.Logger.catch = _catch
+
 
 class LogHandler(logging.Logger):
     """
@@ -130,6 +139,7 @@ class LogHandler(logging.Logger):
     fmt_file : str
         文件日志输出格式字符串。默认 "%(asctime)s - [%(levelname)-8s] [%(name)s] [%(filename)s:%(funcName)s:%(lineno)d] - %(message)s"。
     """
+
     def __init__(
         self,
         name: str = "app",
@@ -170,7 +180,9 @@ class LogHandler(logging.Logger):
                 self._set_error_file_handler()
 
     def _set_console_handler(self):
-        handler = ColoredConsoleHandler() if self.color_console else logging.StreamHandler()
+        handler = (
+            ColoredConsoleHandler() if self.color_console else logging.StreamHandler()
+        )
         handler.setLevel(self.level_console)
         handler.setFormatter(logging.Formatter(self.fmt_console))
         self.addHandler(handler)
@@ -185,7 +197,7 @@ class LogHandler(logging.Logger):
             )
             handler.setLevel(self.level_file)
             handler.setFormatter(logging.Formatter(self.fmt_file))
-            if self.detach_error: 
+            if self.detach_error:
                 # 只让小于 ERROR 级别的日志通过
                 handler.addFilter(lambda record: record.levelno < logging.ERROR)
             self.addHandler(handler)
@@ -207,6 +219,7 @@ class LogHandler(logging.Logger):
             self.addHandler(handler)
         except Exception as e:
             self.error(f"错误日志处理器初始化失败: {e}")
+
 
 class AdvancedLogHandler(logging.Handler):
     """
@@ -255,115 +268,118 @@ class AdvancedLogHandler(logging.Handler):
     def emit(self, record: logging.LogRecord):
         self._logger.handle(record)
 
-def test_loghandler():
-    logger = LogHandler(
-        name="test_logger",
-        log_path="logs/test_app.log",
-        level_console="DEBUG",
-        level_file="DEBUG",
-        detach_error=False,
-        color_console=True,
-        file_backup_count=5,
-        file_max_bytes=1024 * 1024 * 10,
-
-    )
-
-    logger.debug("测试调试日志")
-    logger.info("测试信息日志")
-    logger.warning("测试警告日志")
-    logger.error("测试错误日志")
-    logger.critical("测试严重日志")
-
-
-    # @logger.catch(level=logging.ERROR, reraise=False)    
-    # def background_task():
-    #     raise ValueError("任务失败")
-    
-    # background_task()
-    @logger.catch(level=logging.ERROR, reraise=False)
-    def test_func():
-        return 1 / 0
-    test_func()
-
-def test_django_handler():
-    handler = AdvancedLogHandler(
-        name="test_django_logger",
-        log_path="logs/test_django.log",
-        level_console="DEBUG",
-        level_file="DEBUG",
-        detach_error=True,
-        color_console=True,
-        file_backup_count=5,
-        file_max_bytes=1024 * 1024 * 10,
-    )
-    logger = logging.getLogger("test_django_logger")
-    logger.setLevel(logging.DEBUG)
-    logger.addHandler(handler)
-
-    logger.debug("DjangoCompatibleHandler 测试调试日志")
-    logger.info("DjangoCompatibleHandler 测试信息日志")
-    logger.warning("DjangoCompatibleHandler 测试警告日志")
-    logger.error("DjangoCompatibleHandler 测试错误日志")
-    logger.critical("DjangoCompatibleHandler 测试严重日志")
-
-    @logger.catch(level=logging.ERROR, reraise=False)
-    def background_task():
-        raise ValueError("任务失败")
-    background_task()
-
-def test_dict_logging():
-    LOGGING_CONFIG = {
-        "version": 1,
-        "disable_existing_loggers": False,
-        "formatters": {
-            "console_fmt": {
-                "format": "[%(asctime)s] %(levelname)s - %(message)s",
-            },
-            "file_fmt": {
-                "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            },
-        },
-        "handlers": {
-            "advanced": {
-                "()": AdvancedLogHandler,  # 这里用类路径
-                "name": "dict_logger",
-                "log_path": "logs/dict_config.log",
-                "level_console": "DEBUG",
-                "level_file": "DEBUG",
-                "color_console": True,
-                "enable_console": True,
-                "enable_file": True,
-                "detach_error": True,
-                "file_max_bytes": 1024 * 1024 * 10 ,  # 1MB
-                "file_backup_count": 3,
-                "fmt_console": "[%(asctime)s] %(levelname)s - %(message)s",
-                "fmt_file": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            }
-        },
-        "loggers": {
-            "dict_logger": {
-                "handlers": ["advanced"],
-                "level": "DEBUG",
-                "propagate": False,
-            },
-        },
-    }
-
-    logging.config.dictConfig(LOGGING_CONFIG)
-    logger = logging.getLogger("dict_logger")
-
-    logger.debug("这是 dictConfig 测试的调试日志")
-    logger.info("这是 dictConfig 测试的信息日志")
-    logger.warning("这是 dictConfig 测试的警告日志")
-    logger.error("这是 dictConfig 测试的错误日志")
-    logger.critical("这是 dictConfig 测试的严重日志")
-
-    @logger.catch(level=logging.ERROR, reraise=False)
-    def background_task():
-        raise ValueError("任务失败")
-    background_task()
 
 if __name__ == "__main__":
+
+    def test_loghandler():
+        logger = LogHandler(
+            name="test_logger",
+            log_path="logs/test_app.log",
+            level_console="DEBUG",
+            level_file="DEBUG",
+            detach_error=False,
+            color_console=True,
+            file_backup_count=5,
+            file_max_bytes=1024 * 1024 * 10,
+        )
+
+        logger.debug("测试调试日志")
+        logger.info("测试信息日志")
+        logger.warning("测试警告日志")
+        logger.error("测试错误日志")
+        logger.critical("测试严重日志")
+
+        # @logger.catch(level=logging.ERROR, reraise=False)
+        # def background_task():
+        #     raise ValueError("任务失败")
+
+        # background_task()
+        @logger.catch(level=logging.ERROR, reraise=False)
+        def test_func():
+            return 1 / 0
+
+        test_func()
+
+    def test_django_handler():
+        handler = AdvancedLogHandler(
+            name="test_django_logger",
+            log_path="logs/test_django.log",
+            level_console="DEBUG",
+            level_file="DEBUG",
+            detach_error=True,
+            color_console=True,
+            file_backup_count=5,
+            file_max_bytes=1024 * 1024 * 10,
+        )
+        logger = logging.getLogger("test_django_logger")
+        logger.setLevel(logging.DEBUG)
+        logger.addHandler(handler)
+
+        logger.debug("DjangoCompatibleHandler 测试调试日志")
+        logger.info("DjangoCompatibleHandler 测试信息日志")
+        logger.warning("DjangoCompatibleHandler 测试警告日志")
+        logger.error("DjangoCompatibleHandler 测试错误日志")
+        logger.critical("DjangoCompatibleHandler 测试严重日志")
+
+        @logger.catch(level=logging.ERROR, reraise=False)
+        def background_task():
+            raise ValueError("任务失败")
+
+        background_task()
+
+    def test_dict_logging():
+        LOGGING_CONFIG = {
+            "version": 1,
+            "disable_existing_loggers": False,
+            "formatters": {
+                "console_fmt": {
+                    "format": "[%(asctime)s] %(levelname)s - %(message)s",
+                },
+                "file_fmt": {
+                    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                },
+            },
+            "handlers": {
+                "advanced": {
+                    "()": AdvancedLogHandler,  # 这里用类路径
+                    "name": "dict_logger",
+                    "log_path": "logs/dict_config.log",
+                    "level_console": "DEBUG",
+                    "level_file": "DEBUG",
+                    "color_console": True,
+                    "enable_console": True,
+                    "enable_file": True,
+                    "detach_error": True,
+                    "file_max_bytes": 1024 * 1024 * 10,  # 1MB
+                    "file_backup_count": 3,
+                    "fmt_console": "[%(asctime)s] %(levelname)s - %(message)s",
+                    "fmt_file": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                }
+            },
+            "loggers": {
+                "dict_logger": {
+                    "handlers": ["advanced"],
+                    "level": "DEBUG",
+                    "propagate": False,
+                },
+            },
+        }
+
+        logging.config.dictConfig(LOGGING_CONFIG)
+        logger = logging.getLogger("dict_logger")
+
+        logger.debug("这是 dictConfig 测试的调试日志")
+        logger.info("这是 dictConfig 测试的信息日志")
+        logger.warning("这是 dictConfig 测试的警告日志")
+        logger.error("这是 dictConfig 测试的错误日志")
+        logger.critical("这是 dictConfig 测试的严重日志")
+
+        @logger.catch(level=logging.ERROR, reraise=False)
+        def background_task():
+            raise ValueError("任务失败")
+
+        background_task()
+
     # 测试用例
     test_loghandler()
     # test_django_handler()
