@@ -19,7 +19,7 @@
 | 模块分类     | 说明                                   | 路径                                |
 |------------|--------------------------------------|-----------------------------------|
 | 常用工具     | 日志处理、时间转换等                         | [utils](./templates/utils/README.md) |
-| 网络工具     | 同步HTTP客户端、异步HTTP客户端等                         | [utils](./templates/web/README.md) |
+| 网络工具     | 同步HTTP客户端、异步HTTP客户端等                         | [web](./templates/web/README.md) |
 
 ---
 
