@@ -4,10 +4,11 @@
 # @Date   : 2025/6/20 11:43:52
 # @Author : yy
 # @Des    : 异步请求模块封装，支持 AsyncClient 会话和单请求模式
-import httpx
 import asyncio
 import logging
-from typing import Optional, Dict, Any, Union
+from typing import Any, Dict, Optional, Union
+
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ class AsyncHttpClient:
         data: Optional[Union[Dict, str]] = None,
         json: Optional[Dict[str, Any]] = None,
         timeout: Optional[int] = None,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         full_url = self._full_url(url)
         all_headers = self.default_headers.copy()
@@ -64,10 +65,12 @@ class AsyncHttpClient:
                         data=data,
                         json=json,
                         timeout=timeout or self.timeout,
-                        **kwargs
+                        **kwargs,
                     )
                 else:
-                    async with httpx.AsyncClient(timeout=timeout or self.timeout) as temp_client:
+                    async with httpx.AsyncClient(
+                        timeout=timeout or self.timeout
+                    ) as temp_client:
                         response = await temp_client.request(
                             method=method.upper(),
                             url=full_url,
@@ -75,16 +78,20 @@ class AsyncHttpClient:
                             params=params,
                             data=data,
                             json=json,
-                            **kwargs
+                            **kwargs,
                         )
                 response.raise_for_status()
                 return {
                     "success": True,
                     "status_code": response.status_code,
-                    "data": response.json() if "application/json" in response.headers.get("Content-Type", "") else response.text,
+                    "data": response.json()
+                    if "application/json" in response.headers.get("Content-Type", "")
+                    else response.text,
                 }
             except httpx.RequestError as e:
-                logger.warning(f"[{method}] 请求失败 [{attempt}/{self.retry + 1}]: {full_url} -> {e}")
+                logger.warning(
+                    f"[{method}] 请求失败 [{attempt}/{self.retry + 1}]: {full_url} -> {e}"
+                )
                 if attempt < self.retry + 1:
                     await asyncio.sleep(self.retry_delay)
                 else:
@@ -108,12 +115,13 @@ class AsyncHttpClient:
 
 
 if __name__ == "__main__":
+
     async def main():
         client = AsyncHttpClient(
-        base_url="https://httpbin.org",
-        default_headers={"User-Agent": "MyAsyncApp/1.0"},
-        retry=2,
-        use_session=False,  # 可切换为 False
+            base_url="https://httpbin.org",
+            default_headers={"User-Agent": "MyAsyncApp/1.0"},
+            retry=2,
+            use_session=False,  # 可切换为 False
         )
 
         resp = await client.get("/get", params={"q": "async"})

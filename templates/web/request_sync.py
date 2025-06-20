@@ -6,12 +6,14 @@
 # @Des    :  同步请求模块封装，支持 Session（会话）和单请求模式
 
 
-import requests
-import time
 import logging
-from typing import Optional, Dict, Any, Union
+import time
+from typing import Any, Dict, Optional, Union
+
+import requests
 
 logger = logging.getLogger(__name__)
+
 
 class SyncHttpClient:
     def __init__(
@@ -47,7 +49,7 @@ class SyncHttpClient:
         data: Optional[Union[Dict, str]] = None,
         json: Optional[Dict[str, Any]] = None,
         timeout: Optional[int] = None,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         full_url = self._full_url(url)
         all_headers = self.default_headers.copy()
@@ -65,16 +67,20 @@ class SyncHttpClient:
                     data=data,
                     json=json,
                     timeout=timeout or self.timeout,
-                    **kwargs
+                    **kwargs,
                 )
                 response.raise_for_status()
                 return {
                     "success": True,
                     "status_code": response.status_code,
-                    "data": response.json() if "application/json" in response.headers.get("Content-Type", "") else response.text,
+                    "data": response.json()
+                    if "application/json" in response.headers.get("Content-Type", "")
+                    else response.text,
                 }
             except requests.exceptions.RequestException as e:
-                logger.warning(f"[{method}] 请求失败 [{attempt}/{self.retry + 1}]: {full_url} -> {e}")
+                logger.warning(
+                    f"[{method}] 请求失败 [{attempt}/{self.retry + 1}]: {full_url} -> {e}"
+                )
                 if attempt < self.retry + 1:
                     time.sleep(self.retry_delay)
                 else:
@@ -97,22 +103,21 @@ class SyncHttpClient:
         return self._request("DELETE", url, **kwargs)
 
 
-
 if __name__ == "__main__":
     client = SyncHttpClient(
-    base_url="https://httpbin.org",
-    default_headers={"User-Agent": "MyApp/1.0"},
-    retry=2,
-    use_session=True,  # 可切换为 False
+        base_url="https://httpbin.org",
+        default_headers={"User-Agent": "MyApp/1.0"},
+        retry=2,
+        use_session=True,  # 可切换为 False
     )
 
     # 发起 GET 请求
     resp = client.get("/get", params={"q": "test"})
-    print("GET:", resp['data'])
+    print("GET:", resp["data"])
 
     # 发起 POST 请求
     resp = client.post("/post", json={"name": "alice"})
-    print("POST:", resp['data'])
+    print("POST:", resp["data"])
 
     # 关闭会话
     client.close()
